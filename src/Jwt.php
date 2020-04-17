@@ -73,8 +73,10 @@ class Jwt
      */
     public function refreshToken()
     {
-        if (!$this->getHeaderToken()) {
-            throw new JWTException('A token is required', 500);
+        if (is_null($token) || empty($token)) {
+            if (!($token = $this->getHeaderToken())) {
+                throw new JWTException('A token is required', 500);
+            }
         }
         $claims = $this->blacklist->add($this->getTokenObj());
         unset($claims['iat']);
