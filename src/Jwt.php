@@ -91,13 +91,10 @@ class Jwt
      * @return bool
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
-    public function logout()
-    {
-        $this->getHeaderToken();
-
-        $this->blacklist->add($this->getTokenObj());
-
-        return true;
+    public function logout($token=null)
+   	{   
+        $this->blacklist->add($this->getTokenObj($token));
+       	return true;
     }
 
     /**
@@ -106,31 +103,31 @@ class Jwt
      * @return true
      * @throws \Throwable
      */
-    public function checkToken($validate = true, $verify = true)
+    public function checkToken($validate = true, $verify = true, $token=null)
     {
         try {
-            $token = $this->getTokenObj();
+            $token = $this->getTokenObj($token);
         } catch (\RuntimeException $e) {
             throw new \RuntimeException($e->getMessage(), $e->getCode(), $e->getPrevious());
-        }
+       	}
 
-        if ($this->enalbed) {
-            $claims = $this->claimsToArray($token->getClaims());
-            // 验证token是否存在黑名单
+       	if ($this->enalbed) {
+           	$claims = $this->claimsToArray($token->getClaims());
+           	// 验证token是否存在黑名单
             if ($this->blacklist->has($claims)) {
-                throw new TokenValidException('Token authentication does not pass', 401);
+               	throw new TokenValidException('Token authentication does not pass', 401);
             }
         }
 
-        if ($validate && !$this->validateToken($token)) {
+       	if ($validate && !$this->validateToken($token)) {
             throw new TokenValidException('Token authentication does not pass', 401);
-        }
+       	}
         if ($verify && !$this->verifyToken($token)) {
             throw new TokenValidException('Token authentication does not pass', 401);
         }
-
-        return true;
-    }
+        
+       	return true;
+   	 }
 
     /**
      * 获取Token token
@@ -138,10 +135,13 @@ class Jwt
      * @param int $dynamicCacheTime
      * @return string|null
      */
-    public function getTokenObj()
+    public function getTokenObj($token = null)
     {
-        return $this->getParser()->parse($this->getHeaderToken());
-    }
+        if(is_null($token) || $token === ''){
+            $token = $this->getHeaderToken();
+        }
+        return $this->getParser()->parse($token);
+   	 }
 
     /**
      * 获取token的过期剩余时间，单位为s
