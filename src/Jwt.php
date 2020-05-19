@@ -71,14 +71,14 @@ class Jwt
      * @return Token
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
-    public function refreshToken()
+    public function refreshToken($token)
     {
-        if (is_null($token) || empty($token)) {
+        if (is_null($token) || $token === '') {
             if (!($token = $this->getHeaderToken())) {
                 throw new JWTException('A token is required', 500);
             }
         }
-        $claims = $this->blacklist->add($this->getTokenObj());
+        $claims = $this->blacklist->add($this->getTokenObj($token));
         unset($claims['iat']);
         unset($claims['nbf']);
         unset($claims['exp']);
