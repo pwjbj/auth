@@ -59,7 +59,7 @@ class Jwt
 
         $token = $builder->getToken($signer, $this->getKey()); // Retrieves the generated token
 
-        if ($this->loginType == 'sso' && $isInsertSsoBlack) { // 单点登录要把所有的以前生成的token都失效
+        if ($isInsertSsoBlack) {
             $this->blacklist->add($token);
         }
 
@@ -68,6 +68,8 @@ class Jwt
 
     /**
      * 刷新token
+     *
+     * @param string|null $token
      * @return Token
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
@@ -78,7 +80,13 @@ class Jwt
                 throw new JWTException('A token is required', 500);
             }
         }
-        $claims = $this->blacklist->add($this->getTokenObj($token));
+        $tokenObj = $this->getTokenObj($token);
+
+        if(!$this->blacklist->isNotExpire($tokenObj)){
+            throw new TokenValidException('Token authentication does not pass', 401);
+        }
+
+        $claims = $this->blacklist->add($tokenObj);
         unset($claims['iat']);
         unset($claims['nbf']);
         unset($claims['exp']);
@@ -88,12 +96,24 @@ class Jwt
 
     /**
      * 让token失效
+     *
+     * @param string|null $token
      * @return bool
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
     public function logout($token=null)
-   	{   
-        $this->blacklist->add($this->getTokenObj($token));
+   	{
+        $token = $this->getTokenObj($token);
+
+        //sso方式 更新黑名单时间保证toekn失效
+        if ($this->loginType == 'sso') {
+            $this->blacklist->add($token);
+        }else{
+            //mpop 清掉缓存后就不能登陆
+            $claims = $this->claimsToArray($token->getClaims());
+            $this->blacklist->remove($claims['jti']);
+        }
+
        	return true;
     }
 
@@ -110,6 +130,10 @@ class Jwt
         } catch (\RuntimeException $e) {
             throw new \RuntimeException($e->getMessage(), $e->getCode(), $e->getPrevious());
        	}
+
+        if (!$this->blacklist->isNotExpire($token)) {
+            throw new TokenValidException('Token authentication does not pass', 530);
+        }
 
        	if ($this->enalbed) {
            	$claims = $this->claimsToArray($token->getClaims());
