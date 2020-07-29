@@ -104,16 +104,8 @@ class Jwt
     public function logout($token=null)
    	{
         $token = $this->getTokenObj($token);
-
-        //sso方式 更新黑名单时间保证toekn失效
-        if ($this->loginType == 'sso') {
-            $this->blacklist->add($token);
-        }else{
-            //mpop 清掉缓存后就不能登陆
-            $claims = $this->claimsToArray($token->getClaims());
-            $this->blacklist->remove($claims['jti']);
-        }
-
+        $claims = $this->claimsToArray($token->getClaims());
+        $this->blacklist->remove($claims['jti']);
        	return true;
     }
 
@@ -137,9 +129,9 @@ class Jwt
 
        	if ($this->enalbed) {
            	$claims = $this->claimsToArray($token->getClaims());
-           	// 验证token是否存在黑名单
-            if ($this->blacklist->has($claims)) {
-               	throw new TokenValidException('Token authentication does not pass', 401);
+            $verify_code = $this->blacklist->has($claims);
+            if ($verify_code !== 1) {
+                throw new TokenValidException('Token authentication does not pass', $verify_code);
             }
         }
 

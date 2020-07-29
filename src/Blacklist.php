@@ -86,14 +86,16 @@ class Blacklist extends AbstractAnnotation
         }
 
         if ($this->enalbed && $this->loginType == 'sso') {
-            $val = $this->storage->get($claims['jti']);
-            if(empty($val)){
-                return true;
+            $val = $this->storage->get($claims['jti'],false);
+            //长期未登陆或退出登陆token失效
+            if($val === false){
+                return 401;
             }
+
             // 这里为什么要大于等于0，因为在刷新token时，缓存时间跟签发时间可能一致，详细请看刷新token方法
+            // token 被其他设备踢掉的
             $isFuture = ($claims['iat'] - $val['valid_until']) >= 0;
-            // check whether the expiry + grace has past
-            return !$isFuture;
+            return $isFuture ? 1 : 4001;
         }
 
         return false;
