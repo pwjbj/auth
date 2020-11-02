@@ -86,7 +86,8 @@ class Jwt
             throw new TokenValidException('Token authentication does not pass', 401);
         }
 
-        $claims = $this->blacklist->add($tokenObj);
+        // $claims = $this->blacklist->add($tokenObj);
+        $claims = $this->claimsToArray($tokenObj->getClaims());
         unset($claims['iat']);
         unset($claims['nbf']);
         unset($claims['exp']);
@@ -124,7 +125,7 @@ class Jwt
        	}
 
         if (!$this->blacklist->isNotExpire($token)) {
-            throw new TokenValidException('Token authentication does not pass', 530);
+            throw new TokenValidException('Token authentication does not pass', 401);
         }
 
        	if ($this->enalbed) {
