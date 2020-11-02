@@ -1,6 +1,4 @@
 {
-
-
     "name": "peiweijian/auth",
     "type": "library",
     "license": "MIT",
@@ -20,7 +18,7 @@
     "description": "auth Component",
     "autoload": {
         "psr-4": {
-            "ericjank\\JwtAuth\\": "src/"
+            "Phper666\\JwtAuth\\": "src/"
         }
     },
     "autoload-dev": {
@@ -54,7 +52,7 @@
     },
     "extra": {
         "hyperf": {
-            "config": "ericjank\\JwtAuth\\ConfigProvider"
+            "config": "Phper666\\JwtAuth\\ConfigProvider"
         }
     }
 }
