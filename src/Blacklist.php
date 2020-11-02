@@ -8,6 +8,7 @@
 
 namespace Phper666\JwtAuth;
 
+use Composer\Package\Loader\ValidatingArrayLoader;
 use Hyperf\Di\Annotation\AbstractAnnotation;
 use Lcobucci\JWT\Token;
 use Phper666\JwtAuth\Helper\Utils;
@@ -30,10 +31,11 @@ class Blacklist extends AbstractAnnotation
     {
         $claims = $this->claimsToArray($token->getClaims());
         $jti = $claims['jti'];
+        $iat = $claims['iat'];
         if ($this->enalbed) {
             $this->storage->set(
                 $jti,
-                ['valid_until' => $this->getGraceTimestamp()],
+                ['valid_until' => $iat],
                 $this->getSecondsUntilExpired($claims)
             );
         }
@@ -52,7 +54,6 @@ class Blacklist extends AbstractAnnotation
     {
         $exp = Utils::timestamp($claims['exp']);
         $iat = Utils::timestamp($claims['iat']);
-
         // get the latter of the two expiration dates and find
         // the number of minutes until the expiration date,
         // plus 1 minute to avoid overlap
@@ -79,21 +80,40 @@ class Blacklist extends AbstractAnnotation
      */
     public function has($claims)
     {
+
         if ($this->enalbed && $this->loginType == 'mpop') {
-            $val = $this->storage->get($claims['jti']);
             // check whether the expiry + grace has past
-            return !empty($val) && !Utils::isFuture($val['valid_until']);
+            return !$this->storage->has($claims['jti']);
         }
 
         if ($this->enalbed && $this->loginType == 'sso') {
-            $val = $this->storage->get($claims['jti']);
+            $val = $this->storage->get($claims['jti'],false);
+            
+            //长期未登陆或退出登陆token失效
+            if($val === false){
+                return 401;
+            }
+
             // 这里为什么要大于等于0，因为在刷新token时，缓存时间跟签发时间可能一致，详细请看刷新token方法
+            // token 被其他设备踢掉的
             $isFuture = ($claims['iat'] - $val['valid_until']) >= 0;
-            // check whether the expiry + grace has past
-            return !empty($val) && !$isFuture;
+            return $isFuture ? 1 : 4001;
         }
 
         return false;
+    }
+
+    /**
+     * 判断黑名单是否有效
+     *
+     * @param Token $token
+     * @return bool ture 未过期 false过期
+     * @throws \Psr\SimpleCache\InvalidArgumentException
+     */
+    public function isNotExpire(Token $token)
+    {
+        $claims = $this->claimsToArray($token->getClaims());
+        return $this->storage->has($claims['jti']);
     }
 
     /**

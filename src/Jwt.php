@@ -39,7 +39,7 @@ class Jwt
             $uniqid = uniqid();
         } else { // 单点登录
             if (empty($claims[$this->ssoKey])) {
-                throw new JWTException("There is no {$this->ssoKey} key in the claims", 400);
+                throw new JWTException("There is no {$this->ssoKey} key in the claims", 500);
             }
             $uniqid = $claims[$this->ssoKey];
         }
@@ -59,7 +59,7 @@ class Jwt
 
         $token = $builder->getToken($signer, $this->getKey()); // Retrieves the generated token
 
-        if ($this->loginType == 'sso' && $isInsertSsoBlack) { // 单点登录要把所有的以前生成的token都失效
+        if ($isInsertSsoBlack) {
             $this->blacklist->add($token);
         }
 
@@ -68,18 +68,26 @@ class Jwt
 
     /**
      * 刷新token
+     *
+     * @param string|null $token
      * @return Token
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
-    public function refreshToken()
+    public function refreshToken($token)
     {
-        if (is_null($token) || empty($token)) {
-            if (!$this->getHeaderToken()) {
-                throw new JWTException('A token is required', 400);
+        if (is_null($token) || $token === '') {
+            if (!($token = $this->getHeaderToken())) {
+                throw new JWTException('A token is required', 500);
             }
         }
-        
-        $claims = $this->blacklist->add($this->getTokenObj());
+        $tokenObj = $this->getTokenObj($token);
+
+        if(!$this->blacklist->isNotExpire($tokenObj)){
+            throw new TokenValidException('Token authentication does not pass', 401);
+        }
+
+//        $claims = $this->blacklist->add($tokenObj);
+        $claims = $this->claimsToArray($tokenObj->getClaims());
         unset($claims['iat']);
         unset($claims['nbf']);
         unset($claims['exp']);
@@ -89,18 +97,16 @@ class Jwt
 
     /**
      * 让token失效
+     *
      * @param string|null $token
      * @return bool
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
-    public function logout(string $token = null)
+    public function logout($token=null)
     {
-        if (!is_null($token) && $token !== '') {
-            $token = $this->handleHeaderToken($token);
-        } else {
-            $token = $this->getHeaderToken();
-        }
-        $this->blacklist->add($this->getTokenObj($token));
+        $token = $this->getTokenObj($token);
+        $claims = $this->claimsToArray($token->getClaims());
+        $this->blacklist->remove($claims['jti']);
         return true;
     }
 
@@ -110,7 +116,7 @@ class Jwt
      * @return true
      * @throws \Throwable
      */
-    public function checkToken(string $token = null, $validate = true, $verify = true)
+    public function checkToken($validate = true, $verify = true, $token=null)
     {
         try {
             $token = $this->getTokenObj($token);
@@ -118,11 +124,15 @@ class Jwt
             throw new \RuntimeException($e->getMessage(), $e->getCode(), $e->getPrevious());
         }
 
+        if (!$this->blacklist->isNotExpire($token)) {
+            throw new TokenValidException('Token authentication does not pass', 401);
+        }
+
         if ($this->enalbed) {
             $claims = $this->claimsToArray($token->getClaims());
-            // 验证token是否存在黑名单
-            if ($this->blacklist->has($claims)) {
-                throw new TokenValidException('Token authentication does not pass', 401);
+            $verify_code = $this->blacklist->has($claims);
+            if ($verify_code !== 1) {
+                throw new TokenValidException('Token authentication does not pass', $verify_code);
             }
         }
 
@@ -132,31 +142,32 @@ class Jwt
         if ($verify && !$this->verifyToken($token)) {
             throw new TokenValidException('Token authentication does not pass', 401);
         }
-
+        
         return true;
-    }
+     }
 
     /**
-     * 获取Token对象
-     * @param string|null $token
-     * @return Token
+     * 获取Token token
+     * @param $token
+     * @param int $dynamicCacheTime
+     * @return string|null
      */
-    public function getTokenObj(string $token = null)
+    public function getTokenObj($token = null)
     {
-        if (!is_null($token) && $token !== '') {
-            return $this->getParser()->parse($token);
+        if(is_null($token) || $token === ''){
+            $token = $this->getHeaderToken();
         }
-        return $this->getParser()->parse($this->getHeaderToken());
-    }
+        return $this->getParser()->parse($token);
+     }
 
     /**
      * 获取token的过期剩余时间，单位为s
      * @return int|mixed
      */
-    public function getTokenDynamicCacheTime(string $token = null)
+    public function getTokenDynamicCacheTime()
     {
         $nowTime = time();
-        $exp = $this->getTokenObj($token)->getClaim('exp', $nowTime);
+        $exp = $this->getTokenObj()->getClaim('exp', $nowTime);
         $expTime = $exp - $nowTime;
         return $expTime;
     }
@@ -165,10 +176,10 @@ class Jwt
      * 获取jwt token解析的dataç
      * @return array
      */
-    public function getParserData(string $token = null)
+    public function getParserData()
     {
         $arr = [];
-        $claims = $this->getTokenObj($token)->getClaims();
+        $claims = $this->getTokenObj()->getClaims();
         foreach ($claims as $k => $v) {
             $arr[$k] = $v->getValue();
         }

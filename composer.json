@@ -1,5 +1,7 @@
 {
-    "name": "ericjank/auth",
+
+
+    "name": "pwjbj/auth",
     "type": "library",
     "license": "MIT",
     "keywords": [
@@ -8,9 +10,10 @@
     ],
     "authors": [
         {
-            "name": "Qinsoft",
-            "email": "50172189@qq.com",
-            "homepage": "https://github.com/ericjank/auth",
+
+            "name": "peiweijian",
+            "email": "337516442@qq.com",
+            "homepage": "https://github.com/pwjbj/auth",
             "role": "Developer"
         }
     ],
