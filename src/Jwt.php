@@ -45,13 +45,13 @@ class Jwt
         }
 
         $signer = new $this->supportedAlgs[$this->alg];
-        $time = time();
-
+        $now = new \DateTimeImmutable();
+        $ttl = $this->ttl;
         $builder = $this->getBuilder()
             ->identifiedBy($uniqid) // 设置jwt的jti
-            ->issuedAt($time)// (iat claim) 发布时间
-            ->canOnlyBeUsedAfter($time)// (nbf claim) 在此之前不可用
-            ->expiresAt($time + $this->ttl);// (exp claim) 到期时间
+            ->issuedAt($now)// (iat claim) 发布时间
+            ->canOnlyBeUsedAfter($now)// (nbf claim) 在此之前不可用
+            ->expiresAt($now->modify("+$ttl second" ));// (exp claim) 到期时间
 
         foreach ($claims as $k => $v) {
             $builder = $builder->withClaim($k, $v); // 自定义数据
