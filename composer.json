@@ -33,7 +33,7 @@
         "hyperf/framework": "~1.1.0",
         "hyperf/di": "~1.1.0",
         "hyperf/cache": "~1.1.0",
-        "lcobucci/jwt": "~3.2.0",
+        "lcobucci/jwt": "^3.2",
         "nesbot/carbon": "^1.0 || ^2.0"
     },
     "require-dev": {
